@@ -20,6 +20,10 @@
       background: white;
       border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: none;
+    }
+    #mainContent.ready .info {
+      display: block;
     }
     video, canvas {
       margin-top: 1em;
@@ -33,34 +37,61 @@
   </style>
 </head>
 <body>
-  <h1>Alors comme ça, vous avez tout accepté ?</h1>
-  <p>Voici ce que je sais de vous maintenant ...</p>
+  <div id="mainContent">
+    <h1>Alors comme ça, vous avez tout accepté ?</h1>
+    <p>Voici ce qu'on sait de vous maintenant ...</p>
 
-  <div class="info" id="location">📍 Position : ...</div>
-  <div class="info" id="battery">🔋 Batterie : ...</div>
-  <div class="info" id="connection">📶 Connexion réseau : ...</div>
-  <div class="info" id="uptime">⏱️ Temps depuis l'ouverture : ...</div>
-  <div class="info" id="device">📱 Appareil : ...</div>
-  <div class="info">
-    📷 Caméra : <br />
-    <video id="video" autoplay muted playsinline width="320" height="240"></video>
+    <div class="info" id="location">📍 Position : ...</div>
+    <div class="info" id="battery">🔋 Batterie : ...</div>
+    <div class="info" id="connection">📶 Connexion réseau : ...</div>
+    <div class="info" id="uptime">⏱️ Temps depuis l'ouverture : ...</div>
+    <div class="info" id="device">📱 Appareil : ...</div>
+    <div class="info">
+      📷 Caméra (photo prise à l'autorisation) : <br />
+      <canvas id="snapshot" width="320" height="240"></canvas>
+    </div>
+
+    <footer>
+      Ces données n'ont pas été récoltées... <strong>mais elles auraient pu l'être !</strong>
+    </footer>
   </div>
 
-  <footer>
-    Ces données n'ont pas été récoltées... <strong>mais elles auraient pu l'être !</strong>
-  </footer>
-
   <script>
-    // Localisation
+    const mainContent = document.getElementById("mainContent");
+    let readyCount = 0;
+
+    function revealContent() {
+      readyCount++;
+      if (readyCount >= 4) {
+        mainContent.classList.add("ready");
+      }
+    }
+
+    // Localisation + nom de ville
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         position => {
-          document.getElementById("location").textContent = `📍 Position : Latitude ${position.coords.latitude.toFixed(5)}, Longitude ${position.coords.longitude.toFixed(5)}`;
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          document.getElementById("location").textContent = `📍 Position : Latitude ${lat.toFixed(5)}, Longitude ${lon.toFixed(5)}`;
+
+          // Requête à une API de géocodage inverse gratuite
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+            .then(response => response.json())
+            .then(data => {
+              const city = data.address.city || data.address.town || data.address.village || data.address.county;
+              document.getElementById("location").textContent += city ? ` (${city})` : "";
+              revealContent();
+            })
+            .catch(() => revealContent());
         },
-        err => {
+        () => {
           document.getElementById("location").textContent = "📍 Position : refusée ou non disponible";
+          revealContent();
         }
       );
+    } else {
+      revealContent();
     }
 
     // Batterie
@@ -68,15 +99,25 @@
       navigator.getBattery().then(battery => {
         const percent = Math.round(battery.level * 100);
         document.getElementById("battery").textContent = `🔋 Batterie : ${percent}% ${battery.charging ? '(en charge)' : ''}`;
-      });
+        revealContent();
+      }).catch(() => revealContent());
+    } else {
+      document.getElementById("battery").textContent = "🔋 Batterie : non disponible";
+      revealContent();
     }
 
     // Connexion
-    if (navigator.connection) {
-      document.getElementById("connection").textContent = `📶 Connexion réseau : ${navigator.connection.effectiveType}`;
-    } else {
+    try {
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (connection && connection.effectiveType) {
+        document.getElementById("connection").textContent = `📶 Connexion réseau : ${connection.effectiveType}`;
+      } else {
+        document.getElementById("connection").textContent = "📶 Connexion réseau : non disponible";
+      }
+    } catch (e) {
       document.getElementById("connection").textContent = "📶 Connexion réseau : non disponible";
     }
+    revealContent();
 
     // Temps depuis l'ouverture de la page
     const start = performance.now();
@@ -90,16 +131,32 @@
     // Infos appareil
     document.getElementById("device").textContent = `📱 Appareil : ${navigator.userAgent}, Langue : ${navigator.language}, Résolution : ${screen.width}x${screen.height}`;
 
-    // Caméra
-    const video = document.getElementById("video");
+    // Caméra - capture image unique
+    const canvas = document.getElementById("snapshot");
+    const context = canvas.getContext("2d");
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
+          const video = document.createElement("video");
           video.srcObject = stream;
+          video.play();
+
+          video.addEventListener("loadeddata", () => {
+            setTimeout(() => {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              video.pause();
+              stream.getTracks().forEach(track => track.stop());
+              revealContent();
+            }, 1000);
+          });
         })
-        .catch(err => {
-          video.parentElement.innerHTML = "📷 Caméra : refusée ou non disponible";
+        .catch(() => {
+          document.getElementById("snapshot").replaceWith("📷 Caméra : refusée ou non disponible");
+          revealContent();
         });
+    } else {
+      revealContent();
     }
   </script>
 </body>
