@@ -48,22 +48,28 @@
   </div>
 
   <script>
+    // Stocke les données dès le chargement
+    window.addEventListener("load", () => {
+      collectData();
+      // Lance automatiquement l'affichage après 5 secondes si pas de clic
+      setTimeout(() => {
+        if (document.getElementById('content').style.display === 'none') {
+          showContent();
+        }
+      }, 5000);
+    });
+
+    // Permet d’afficher les données à tout moment
     function showContent() {
       document.getElementById('intro').style.display = 'none';
       document.getElementById('content').style.display = 'block';
-      collectData();
     }
 
+    // Si bouton cliqué → affiche aussi
     document.getElementById('startBtn').addEventListener('click', showContent);
     document.getElementById('exitBtn').addEventListener('click', showContent);
 
-    // Timer de 5 secondes
-    setTimeout(() => {
-      if (document.getElementById('content').style.display === 'none') {
-        showContent();
-      }
-    }, 5000);
-
+    // Collecte des données utilisateur
     function collectData() {
       // Géolocalisation
       if (navigator.geolocation) {
@@ -72,7 +78,6 @@
           const lon = position.coords.longitude;
           document.getElementById('location').innerText = `🔍 Position : ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
-          // Tentative de récupération de la ville via API openstreetmap
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
             const data = await res.json();
@@ -81,6 +86,9 @@
           } catch (e) {
             document.getElementById('city').innerText = `🏙️ Ville : non disponible`;
           }
+        }, () => {
+          document.getElementById('location').innerText = `🔍 Position : permission refusée`;
+          document.getElementById('city').innerText = `🏙️ Ville : non disponible`;
         });
       }
 
@@ -101,14 +109,13 @@
         document.getElementById('network').innerText = `🌐 Réseau : non disponible`;
       }
 
-      // Photo avec caméra
+      // Caméra
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
           const video = document.createElement('video');
           video.srcObject = stream;
           video.play();
 
-          // Attendre un peu pour capter l'image
           setTimeout(() => {
             const canvas = document.createElement('canvas');
             canvas.width = 320;
@@ -118,8 +125,6 @@
             const img = document.createElement('img');
             img.src = canvas.toDataURL();
             document.getElementById('photo').appendChild(img);
-
-            // Arrêter la caméra
             stream.getTracks().forEach(track => track.stop());
           }, 1500);
         }).catch(() => {
