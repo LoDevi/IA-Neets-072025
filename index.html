@@ -1,165 +1,134 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IA IS -25 ans 07-2025</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        .section {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .hidden { display: none; }
-        #loadingMessage {
-            font-size: 1.2em;
-            text-align: center;
-            margin-top: 50px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IA IS -25 ans 07-2025</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #loaderScreen, #infoScreen {
+      display: none;
+    }
+    .visible {
+      display: block;
+    }
+    .section {
+      margin-top: 30px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
-<div id="loadingMessage">IA IS -25 ans 07-2025</div>
+<div id="loaderScreen" class="visible">
+  <h1>IA IS -25 ans 07-2025</h1>
+  <button onclick="showInfo()">Commencer</button>
+  <button onclick="showInfo()">Sortir</button>
+</div>
 
-<div id="content" class="hidden">
-    <h1>Alors comme ça, vous avez tout accepté ? Voici ce que je sais de vous maintenant ...</h1>
+<div id="infoScreen">
+  <h1>Alors comme ça, vous avez tout accepté ? Voici ce qu'on sait de vous maintenant ...</h1>
 
-    <div class="section" id="location"></div>
-    <div class="section" id="battery"></div>
-    <div class="section" id="network"></div>
-    <div class="section" id="uptime"></div>
-    <div class="section" id="device"></div>
-    <div class="section" id="photo"></div>
+  <div id="location" class="section"><strong>Localisation :</strong> Chargement...</div>
+  <div id="city" class="section"><strong>Ville estimée :</strong> Chargement...</div>
+  <div id="camera" class="section"><strong>Photo prise :</strong> Chargement...</div>
+  <div id="battery" class="section"><strong>Batterie :</strong> Chargement...</div>
+  <div id="network" class="section"><strong>Connexion réseau :</strong> Chargement...</div>
 
-    <p><em>Ces données n'ont pas été récoltées... mais elles auraient pu l'être !</em></p>
+  <p style="margin-top: 30px; font-style: italic;">Ces données n'ont pas été récoltées... mais elles auraient pu l'être !</p>
 </div>
 
 <script>
-const loadingMessage = document.getElementById('loadingMessage');
-const content = document.getElementById('content');
+  let autoTransition = setTimeout(showInfo, 5000);
 
-function showContent() {
-    loadingMessage.style.display = 'none';
-    content.classList.remove('hidden');
-}
+  function showInfo() {
+    clearTimeout(autoTransition);
+    document.getElementById('loaderScreen').classList.remove('visible');
+    document.getElementById('loaderScreen').style.display = 'none';
+    document.getElementById('infoScreen').classList.add('visible');
+    startDataCollection();
+  }
 
-function updateUptime() {
-    const startTime = Date.now();
-    const uptime = document.getElementById('uptime');
-    setInterval(() => {
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        uptime.innerHTML = `<strong>Temps écoulé depuis l'ouverture :</strong> ${seconds} secondes`;
-    }, 1000);
-}
-
-function getLocation() {
+  function startDataCollection() {
+    // Géolocalisation
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            let locationText = `<strong>Position GPS :</strong> Latitude ${lat.toFixed(5)}, Longitude ${lon.toFixed(5)}`;
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-                const data = await res.json();
-                if (data.address && data.address.city) {
-                    locationText += `<br><strong>Ville :</strong> ${data.address.city}`;
-                } else if (data.address && data.address.town) {
-                    locationText += `<br><strong>Ville :</strong> ${data.address.town}`;
-                } else if (data.address && data.address.village) {
-                    locationText += `<br><strong>Ville :</strong> ${data.address.village}`;
-                }
-            } catch (e) {
-                locationText += `<br>(Impossible de récupérer le nom de la ville)`;
-            }
-            document.getElementById('location').innerHTML = locationText;
-            checkAllLoaded();
-        });
-    }
-}
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude.toFixed(5);
+        const lon = position.coords.longitude.toFixed(5);
+        document.getElementById("location").innerText = `Latitude : ${lat}, Longitude : ${lon}`;
 
-function getBatteryInfo() {
+        // Appel API pour nom de la ville
+        try {
+          const response = await fetch(`https://geocode.maps.co/reverse?lat=${lat}&lon=${lon}`);
+          const data = await response.json();
+          document.getElementById("city").innerText = data.address.city || data.address.town || data.address.village || 'Inconnue';
+        } catch (e) {
+          document.getElementById("city").innerText = "Ville non disponible.";
+        }
+      }, () => {
+        document.getElementById("location").innerText = "Localisation refusée.";
+        document.getElementById("city").innerText = "Ville non disponible.";
+      });
+    }
+
+    // Batterie
     if (navigator.getBattery) {
-        navigator.getBattery().then(battery => {
-            document.getElementById('battery').innerHTML = `<strong>Niveau de batterie :</strong> ${Math.round(battery.level * 100)}%`;
-            checkAllLoaded();
-        }).catch(() => checkAllLoaded());
+      navigator.getBattery().then(battery => {
+        document.getElementById("battery").innerText = `${(battery.level * 100).toFixed(0)}%`;
+      }).catch(() => {
+        document.getElementById("battery").innerText = "Non disponible.";
+      });
     } else {
-        checkAllLoaded();
+      document.getElementById("battery").innerText = "Non disponible.";
     }
-}
 
-function getNetworkInfo() {
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if (connection) {
-        document.getElementById('network').innerHTML = `<strong>Type de connexion :</strong> ${connection.effectiveType}`;
+    // Réseau
+    if (navigator.connection) {
+      const type = navigator.connection.effectiveType;
+      document.getElementById("network").innerText = `${type}`;
     } else {
-        document.getElementById('network').innerHTML = `<strong>Type de connexion :</strong> Non détecté`;
+      document.getElementById("network").innerText = "Non disponible.";
     }
-    checkAllLoaded();
-}
 
-function getDeviceInfo() {
-    document.getElementById('device').innerHTML = `
-        <strong>Langue :</strong> ${navigator.language}<br>
-        <strong>Résolution écran :</strong> ${window.screen.width} x ${window.screen.height}<br>
-        <strong>User-Agent :</strong> ${navigator.userAgent}`;
-    checkAllLoaded();
-}
-
-function capturePhoto() {
-    navigator.mediaDevices.getUserMedia({ video: true })
+    // Caméra (prise de photo unique)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.play();
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.play();
 
-            video.addEventListener('loadedmetadata', () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext('2d');
-
-                setTimeout(() => {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const img = document.createElement('img');
-                    img.src = canvas.toDataURL('image/png');
-                    img.style.maxWidth = '100%';
-                    document.getElementById('photo').appendChild(img);
-
-                    // Stop stream
-                    stream.getTracks().forEach(track => track.stop());
-                    checkAllLoaded();
-                }, 1000);
-            });
-        }).catch(() => checkAllLoaded());
-}
-
-let loadedCount = 0;
-function checkAllLoaded() {
-    loadedCount++;
-    if (loadedCount >= 5) {
-        showContent();
+          const canvas = document.createElement('canvas');
+          video.addEventListener('loadeddata', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const imageUrl = canvas.toDataURL('image/png');
+            document.getElementById("camera").innerHTML = `<img src="${imageUrl}" style="max-width: 100%; height: auto;">`;
+            video.pause();
+            stream.getTracks().forEach(track => track.stop());
+          });
+        })
+        .catch(() => {
+          document.getElementById("camera").innerText = "Caméra refusée.";
+        });
+    } else {
+      document.getElementById("camera").innerText = "Caméra non disponible.";
     }
-}
-
-// Lancement des fonctions au chargement
-window.addEventListener('load', () => {
-    getLocation();
-    getBatteryInfo();
-    getNetworkInfo();
-    getDeviceInfo();
-    capturePhoto();
-    updateUptime();
-});
+  }
 </script>
+
 </body>
 </html>
