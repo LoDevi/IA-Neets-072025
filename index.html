@@ -3,128 +3,130 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Exercice IA</title>
+  <title>Exercice Autorisations</title>
   <style>
     body {
       font-family: sans-serif;
       padding: 20px;
-      background: #f5f5f5;
-      color: #222;
+      background: #f2f2f2;
+      color: #333;
     }
-    #intro, #main {
+    #content {
       display: none;
-      text-align: center;
     }
-    .visible {
-      display: block;
-    }
-    button {
-      margin: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
+    .hidden {
+      display: none;
     }
     .section {
-      margin: 20px 0;
+      margin-bottom: 20px;
       padding: 10px;
       background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
-
-  <!-- Page d'intro -->
-  <div id="intro" class="visible">
+  <div id="intro">
     <h1>IA IS -25 ans 07-2025</h1>
-    <button onclick="showMain()">Commencer</button>
-    <button onclick="showMain()">Sortir</button>
+    <button id="startBtn">Commencer</button>
+    <button id="exitBtn">Sortir</button>
   </div>
 
-  <!-- Page principale -->
-  <div id="main">
-    <h1>Alors comme ça, vous avez tout accepté ? Voici ce qu'on sait de vous maintenant...</h1>
+  <div id="content">
+    <h1>Alors comme ça, vous avez tout accepté ?<br>Voici ce qu'on sait de vous maintenant ...</h1>
 
-    <div class="section" id="location">📍 Récupération de la position...</div>
-    <div class="section" id="battery">🔋 État de la batterie...</div>
-    <div class="section" id="connection">📶 Type de connexion réseau...</div>
-    <div class="section" id="photo">📷 Photo prise (si autorisée)...</div>
+    <div class="section" id="location">🔍 Position : chargement...</div>
+    <div class="section" id="city">🏙️ Ville : chargement...</div>
+    <div class="section" id="battery">🔋 Batterie : chargement...</div>
+    <div class="section" id="network">🌐 Réseau : chargement...</div>
+    <div class="section" id="photo">📷 Photo prise :</div>
 
-    <p style="margin-top: 40px; font-style: italic;">Ces données n'ont pas été récoltées... mais elles auraient pu l'être !</p>
+    <p style="margin-top:40px;font-style:italic;">
+      Ces données n'ont pas été récoltées... mais elles auraient pu l'être !
+    </p>
   </div>
 
   <script>
-    function showMain() {
-      document.getElementById("intro").classList.remove("visible");
-      document.getElementById("main").classList.add("visible");
+    function showContent() {
+      document.getElementById('intro').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
       collectData();
     }
 
-    // Passage automatique après 5 secondes
-    setTimeout(showMain, 5000);
+    document.getElementById('startBtn').addEventListener('click', showContent);
+    document.getElementById('exitBtn').addEventListener('click', showContent);
 
-    async function collectData() {
-      // Position + nom de ville
+    // Timer de 5 secondes
+    setTimeout(() => {
+      if (document.getElementById('content').style.display === 'none') {
+        showContent();
+      }
+    }, 5000);
+
+    function collectData() {
+      // Géolocalisation
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(async (position) => {
-          const lat = position.coords.latitude.toFixed(5);
-          const lon = position.coords.longitude.toFixed(5);
-          let cityName = "inconnue";
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          document.getElementById('location').innerText = `🔍 Position : ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+          // Tentative de récupération de la ville via API openstreetmap
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
             const data = await res.json();
-            cityName = data.address.city || data.address.town || data.address.village || "inconnue";
-          } catch (err) {}
-          document.getElementById("location").innerHTML = `📍 Position : ${lat}, ${lon} (${cityName})`;
+            const city = data.address.city || data.address.town || data.address.village || data.address.municipality || "non identifiée";
+            document.getElementById('city').innerText = `🏙️ Ville : ${city}`;
+          } catch (e) {
+            document.getElementById('city').innerText = `🏙️ Ville : non disponible`;
+          }
         });
-      } else {
-        document.getElementById("location").innerText = "📍 Position : non disponible";
       }
 
       // Batterie
       if (navigator.getBattery) {
-        try {
-          const battery = await navigator.getBattery();
-          document.getElementById("battery").innerText = `🔋 Batterie : ${Math.round(battery.level * 100)}% (${battery.charging ? "en charge" : "non en charge"})`;
-        } catch {
-          document.getElementById("battery").innerText = "🔋 Batterie : non disponible";
-        }
-      } else {
-        document.getElementById("battery").innerText = "🔋 Batterie : non disponible";
+        navigator.getBattery().then(battery => {
+          document.getElementById('battery').innerText = `🔋 Batterie : ${Math.round(battery.level * 100)}%`;
+        }).catch(() => {
+          document.getElementById('battery').innerText = `🔋 Batterie : non disponible`;
+        });
       }
 
       // Connexion réseau
-      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      if (connection) {
-        document.getElementById("connection").innerText = `📶 Type de connexion : ${connection.effectiveType}`;
+      if (navigator.connection) {
+        const type = navigator.connection.effectiveType;
+        document.getElementById('network').innerText = `🌐 Réseau : ${type}`;
       } else {
-        document.getElementById("connection").innerText = "📶 Connexion : non disponible";
+        document.getElementById('network').innerText = `🌐 Réseau : non disponible`;
       }
 
-      // Caméra : capture instantanée
+      // Photo avec caméra
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          const video = document.createElement("video");
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+          const video = document.createElement('video');
           video.srcObject = stream;
           video.play();
 
-          const canvas = document.createElement("canvas");
+          // Attendre un peu pour capter l'image
           setTimeout(() => {
+            const canvas = document.createElement('canvas');
             canvas.width = 320;
             canvas.height = 240;
-            const ctx = canvas.getContext("2d");
+            const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imgData = canvas.toDataURL("image/png");
-            document.getElementById("photo").innerHTML = `<img src="${imgData}" alt="Photo capturée" style="max-width:100%; border-radius:10px;" />`;
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL();
+            document.getElementById('photo').appendChild(img);
+
+            // Arrêter la caméra
             stream.getTracks().forEach(track => track.stop());
-          }, 1000);
-        } catch (err) {
-          document.getElementById("photo").innerText = "📷 Caméra non autorisée ou non disponible.";
-        }
+          }, 1500);
+        }).catch(() => {
+          document.getElementById('photo').innerText = '📷 Photo : permission refusée ou erreur';
+        });
       } else {
-        document.getElementById("photo").innerText = "📷 Caméra non disponible.";
+        document.getElementById('photo').innerText = '📷 Photo : caméra non disponible';
       }
     }
   </script>
